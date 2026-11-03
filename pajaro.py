@@ -3,6 +3,8 @@ import os
 import json
 import random
 import requests
+import re
+from html import unescape
 
 ARCHIVO_HISTORIAL = "historial.json"
 
@@ -102,7 +104,7 @@ def buscar_fotografia(nombre):
             "gsrnamespace": 6,
             "gsrlimit": 10,
             "prop": "imageinfo",
-            "iiprop": "url",
+            "iiprop": "url|extmetadata",
             "iiurlwidth": 1000,
             "format": "json"
         }
@@ -124,7 +126,8 @@ def buscar_fotografia(nombre):
         info = imagenes[0]
         metadatos = info.get("extmetadata", {})
 
-        autor = metadatos.get("Artist", {}).get("value", "Autor desconocido")
+        autor_html = metadatos.get("Artist", {}).get("value", "Autor desconocido")
+        autor = unescape(re.sub(r"<[^>]+>", "", autor_html))
         licencia = metadatos.get("LicenseShortName", {}).get("value", "Licencia no indicada")
         pagina_imagen = info.get("descriptionurl", "")
 
