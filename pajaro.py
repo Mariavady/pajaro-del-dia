@@ -118,10 +118,23 @@ def buscar_fotografia(nombre):
         paginas = respuesta.json().get("query", {}).get("pages", {})
 
         for pagina in paginas.values():
-            imagenes = pagina.get("imageinfo", [])
-            if imagenes:
-                return imagenes[0].get("thumburl") or imagenes[0].get("url")
+    imagenes = pagina.get("imageinfo", [])
 
+    if imagenes:
+        info = imagenes[0]
+        metadatos = info.get("extmetadata", {})
+
+        autor = metadatos.get("Artist", {}).get("value", "Autor desconocido")
+        licencia = metadatos.get("LicenseShortName", {}).get("value", "Licencia no indicada")
+        pagina_imagen = info.get("descriptionurl", "")
+
+        return {
+            "url": info.get("thumburl") or info.get("url"),
+            "autor": autor,
+            "licencia": licencia,
+            "pagina": pagina_imagen
+        }
+        
     except (requests.RequestException, ValueError):
         print("No se pudo encontrar una fotografía.")
 
@@ -141,7 +154,9 @@ def publicar_ave():
         disponibles = AVES.copy()
 
     ave = random.choice(disponibles)
-    fotografia = buscar_fotografia(ave["nombre"])
+    datos_foto = buscar_fotografia(ave["nombre"])
+
+    fotografia = datos_foto["url"] if datos_foto else None
     mensaje = {
         "embeds": [{
             "title": f"🐦 Ave del día: {ave['nombre']}",
@@ -150,7 +165,10 @@ def publicar_ave():
                 f"🧭 **Presencia en España:** {ave['tipo']}\n"
                 f"🏡 **Hábitat:** {ave['habitat']}\n"
                 f"🍽️ **Alimentación:** {ave['comida']}\n\n"
-                f"💡 **Curiosidad:** {ave['dato']}"
+                f"💡 **Curiosidad:** {ave['dato']}\n\n"
+                f"\n\n📷 **Fotografía:** {datos_foto['autor'] if datos_foto else 'No disponible'}\n"
+                f"📜 **Licencia:** {datos_foto['licencia'] if datos_foto else 'No disponible'}\n"
+                f"🔗 **Origen:** {datos_foto['pagina'] if datos_foto else 'No disponible'}"
             ),
             "color": 3447003,
             "image": {"url": fotografia} if fotografia else {},
