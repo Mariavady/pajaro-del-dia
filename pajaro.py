@@ -141,7 +141,7 @@ def publicar_ave():
         disponibles = AVES.copy()
 
     ave = random.choice(disponibles)
-    fotografia = buscar_fotografia(ave["nombre"])
+    fotografia = buscar_fotografia(ave["cientifico"])
     mensaje = {
         "embeds": [{
             "title": f"🐦 Ave del día: {ave['nombre']}",
