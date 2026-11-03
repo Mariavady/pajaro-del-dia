@@ -173,6 +173,8 @@ def publicar_ave():
     datos_foto = buscar_fotografia(ave["nombre"])
 
     fotografia = datos_foto["url"] if datos_foto else None
+    print("DATOS DE LA FOTO:", datos_foto)
+    
     mensaje = {
         "embeds": [{
             "title": f"🐦 Ave del día: {ave['nombre']}",
