@@ -1,4 +1,3 @@
-
 import os
 import json
 import random
@@ -77,6 +76,7 @@ AVES = [
     {"nombre": "Chochín común", "cientifico": "Troglodytes troglodytes", "tipo": "Residente", "habitat": "Bosques húmedos y matorrales", "comida": "Pequeños invertebrados", "dato": "Es diminuto, pero tiene un canto sorprendentemente potente."}
 ]
 
+
 def cargar_historial():
     if not os.path.exists(ARCHIVO_HISTORIAL):
         return []
@@ -87,23 +87,23 @@ def cargar_historial():
     except (json.JSONDecodeError, OSError):
         return []
 
+
 def guardar_historial(historial):
     with open(ARCHIVO_HISTORIAL, "w", encoding="utf-8") as archivo:
         json.dump(historial, archivo, ensure_ascii=False, indent=2)
 
-def buscar_fotografia(nombre):
+
+def buscar_fotografia(nombre_cientifico):
     try:
-        url = "https://commons.wikimedia.org/w/api.php"
+        url = "https://en.wikipedia.org/w/api.php"
 
         parametros = {
             "action": "query",
-            "generator": "search",
-            "gsrsearch": f"filetype:bitmap {nombre}",
-            "gsrnamespace": 6,
-            "gsrlimit": 10,
-            "prop": "imageinfo",
-            "iiprop": "url",
-            "iiurlwidth": 1000,
+            "titles": nombre_cientifico,
+            "redirects": 1,
+            "prop": "pageimages",
+            "piprop": "thumbnail",
+            "pithumbsize": 1000,
             "format": "json"
         }
 
@@ -118,14 +118,15 @@ def buscar_fotografia(nombre):
         paginas = respuesta.json().get("query", {}).get("pages", {})
 
         for pagina in paginas.values():
-            imagenes = pagina.get("imageinfo", [])
-            if imagenes:
-                return imagenes[0].get("thumburl") or imagenes[0].get("url")
+            miniatura = pagina.get("thumbnail")
+            if miniatura and miniatura.get("source"):
+                return miniatura["source"]
 
     except (requests.RequestException, ValueError):
         print("No se pudo encontrar una fotografía.")
 
     return None
+
 
 def publicar_ave():
     webhook = os.environ["DISCORD_WEBHOOK"]
@@ -141,7 +142,9 @@ def publicar_ave():
         disponibles = AVES.copy()
 
     ave = random.choice(disponibles)
+
     fotografia = buscar_fotografia(ave["cientifico"])
+
     mensaje = {
         "embeds": [{
             "title": f"🐦 Ave del día: {ave['nombre']}",
@@ -167,6 +170,7 @@ def publicar_ave():
     guardar_historial(historial)
 
     print(f"¡Publicado: {ave['nombre']}!")
+
 
 if __name__ == "__main__":
     publicar_ave()
