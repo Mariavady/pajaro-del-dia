@@ -3,8 +3,6 @@ import os
 import json
 import random
 import requests
-import re
-from html import unescape
 
 ARCHIVO_HISTORIAL = "historial.json"
 
@@ -94,67 +92,40 @@ def guardar_historial(historial):
         json.dump(historial, archivo, ensure_ascii=False, indent=2)
 
 def buscar_fotografia(nombre):
-    """Busca una fotografía de un ave en Wikimedia Commons."""
-
-    url_api = "https://commons.wikimedia.org/w/api.php"
-
-    parametros = {
-        "action": "query",
-        "format": "json",
-        "generator": "search",
-        "gsrsearch": f'filetype:bitmap "{nombre}" bird',
-        "gsrnamespace": 6,
-        "gsrlimit": 5,
-        "prop": "imageinfo",
-        "iiprop": "url|extmetadata",
-        "iiurlwidth": 1000
-    }
-
     try:
+        url = "https://commons.wikimedia.org/w/api.php"
+
+        parametros = {
+            "action": "query",
+            "generator": "search",
+            "gsrsearch": f"filetype:bitmap {nombre}",
+            "gsrnamespace": 6,
+            "gsrlimit": 10,
+            "prop": "imageinfo",
+            "iiprop": "url",
+            "iiurlwidth": 1000,
+            "format": "json"
+        }
+
         respuesta = requests.get(
-            url_api,
+            url,
             params=parametros,
+            headers={"User-Agent": "PajaroDelDia/1.0"},
             timeout=20
         )
         respuesta.raise_for_status()
 
-        datos = respuesta.json()
-        paginas = datos.get("query", {}).get("pages", {})
+        paginas = respuesta.json().get("query", {}).get("pages", {})
 
         for pagina in paginas.values():
             imagenes = pagina.get("imageinfo", [])
-
             if imagenes:
-                info = imagenes[0]
-                metadatos = info.get("extmetadata", {})
+                return imagenes[0].get("thumburl") or imagenes[0].get("url")
 
-                autor_html = metadatos.get(
-                    "Artist", {}
-                ).get("value", "Autor desconocido")
+    except (requests.RequestException, ValueError):
+        print("No se pudo encontrar una fotografía.")
 
-                autor = unescape(
-                    re.sub(r"<[^>]+>", "", autor_html)
-                )
-
-                licencia = metadatos.get(
-                    "LicenseShortName", {}
-                ).get("value", "Licencia no indicada")
-
-                pagina_imagen = info.get("descriptionurl", "")
-
-                return {
-                    "url": info.get("thumburl") or info.get("url"),
-                    "autor": autor,
-                    "licencia": licencia,
-                    "pagina": pagina_imagen
-                }
-
-        print("No se encontró ninguna fotografía.")
-        return None
-
-    except (requests.RequestException, ValueError) as error:
-        print(f"Error al buscar la fotografía: {error}")
-        return None
+    return None
 
 def publicar_ave():
     webhook = os.environ["DISCORD_WEBHOOK"]
@@ -170,11 +141,7 @@ def publicar_ave():
         disponibles = AVES.copy()
 
     ave = random.choice(disponibles)
-    datos_foto = buscar_fotografia(ave["nombre"])
-
-    fotografia = datos_foto["url"] if datos_foto else None
-    print("DATOS DE LA FOTO:", datos_foto)
-    
+    fotografia = buscar_fotografia(ave["nombre"])
     mensaje = {
         "embeds": [{
             "title": f"🐦 Ave del día: {ave['nombre']}",
@@ -183,10 +150,7 @@ def publicar_ave():
                 f"🧭 **Presencia en España:** {ave['tipo']}\n"
                 f"🏡 **Hábitat:** {ave['habitat']}\n"
                 f"🍽️ **Alimentación:** {ave['comida']}\n\n"
-                f"💡 **Curiosidad:** {ave['dato']}\n\n"
-                f"\n\n📷 **Fotografía:** {datos_foto['autor'] if datos_foto else 'No disponible'}\n"
-                f"📜 **Licencia:** {datos_foto['licencia'] if datos_foto else 'No disponible'}\n"
-                f"🔗 **Origen:** {datos_foto['pagina'] if datos_foto else 'No disponible'}"
+                f"💡 **Curiosidad:** {ave['dato']}"
             ),
             "color": 3447003,
             "image": {"url": fotografia} if fotografia else {},
