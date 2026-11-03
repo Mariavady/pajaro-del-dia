@@ -94,54 +94,67 @@ def guardar_historial(historial):
         json.dump(historial, archivo, ensure_ascii=False, indent=2)
 
 def buscar_fotografia(nombre):
+    """Busca una fotografía de un ave en Wikimedia Commons."""
+
+    url_api = "https://commons.wikimedia.org/w/api.php"
+
+    parametros = {
+        "action": "query",
+        "format": "json",
+        "generator": "search",
+        "gsrsearch": f'filetype:bitmap "{nombre}" bird',
+        "gsrnamespace": 6,
+        "gsrlimit": 5,
+        "prop": "imageinfo",
+        "iiprop": "url|extmetadata",
+        "iiurlwidth": 1000
+    }
+
     try:
-        url = "https://commons.wikimedia.org/w/api.php"
-
-        parametros = {
-            "action": "query",
-            "generator": "search",
-            "gsrsearch": f"filetype:bitmap {nombre}",
-            "gsrnamespace": 6,
-            "gsrlimit": 10,
-            "prop": "imageinfo",
-            "iiprop": "url|extmetadata",
-            "iiurlwidth": 1000,
-            "format": "json"
-        }
-
         respuesta = requests.get(
-            url,
+            url_api,
             params=parametros,
-            headers={"User-Agent": "PajaroDelDia/1.0"},
             timeout=20
         )
         respuesta.raise_for_status()
 
-        paginas = respuesta.json().get("query", {}).get("pages", {})
+        datos = respuesta.json()
+        paginas = datos.get("query", {}).get("pages", {})
 
         for pagina in paginas.values():
-    imagenes = pagina.get("imageinfo", [])
+            imagenes = pagina.get("imageinfo", [])
 
-    if imagenes:
-        info = imagenes[0]
-        metadatos = info.get("extmetadata", {})
+            if imagenes:
+                info = imagenes[0]
+                metadatos = info.get("extmetadata", {})
 
-        autor_html = metadatos.get("Artist", {}).get("value", "Autor desconocido")
-        autor = unescape(re.sub(r"<[^>]+>", "", autor_html))
-        licencia = metadatos.get("LicenseShortName", {}).get("value", "Licencia no indicada")
-        pagina_imagen = info.get("descriptionurl", "")
+                autor_html = metadatos.get(
+                    "Artist", {}
+                ).get("value", "Autor desconocido")
 
-        return {
-            "url": info.get("thumburl") or info.get("url"),
-            "autor": autor,
-            "licencia": licencia,
-            "pagina": pagina_imagen
-        }
-        
-    except (requests.RequestException, ValueError):
-        print("No se pudo encontrar una fotografía.")
+                autor = unescape(
+                    re.sub(r"<[^>]+>", "", autor_html)
+                )
 
-    return None
+                licencia = metadatos.get(
+                    "LicenseShortName", {}
+                ).get("value", "Licencia no indicada")
+
+                pagina_imagen = info.get("descriptionurl", "")
+
+                return {
+                    "url": info.get("thumburl") or info.get("url"),
+                    "autor": autor,
+                    "licencia": licencia,
+                    "pagina": pagina_imagen
+                }
+
+        print("No se encontró ninguna fotografía.")
+        return None
+
+    except (requests.RequestException, ValueError) as error:
+        print(f"Error al buscar la fotografía: {error}")
+        return None
 
 def publicar_ave():
     webhook = os.environ["DISCORD_WEBHOOK"]
