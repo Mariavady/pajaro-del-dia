@@ -91,6 +91,42 @@ def guardar_historial(historial):
     with open(ARCHIVO_HISTORIAL, "w", encoding="utf-8") as archivo:
         json.dump(historial, archivo, ensure_ascii=False, indent=2)
 
+def buscar_fotografia(nombre):
+    try:
+        url = "https://commons.wikimedia.org/w/api.php"
+
+        parametros = {
+            "action": "query",
+            "generator": "search",
+            "gsrsearch": f"filetype:bitmap {nombre}",
+            "gsrnamespace": 6,
+            "gsrlimit": 10,
+            "prop": "imageinfo",
+            "iiprop": "url",
+            "iiurlwidth": 1000,
+            "format": "json"
+        }
+
+        respuesta = requests.get(
+            url,
+            params=parametros,
+            headers={"User-Agent": "PajaroDelDia/1.0"},
+            timeout=20
+        )
+        respuesta.raise_for_status()
+
+        paginas = respuesta.json().get("query", {}).get("pages", {})
+
+        for pagina in paginas.values():
+            imagenes = pagina.get("imageinfo", [])
+            if imagenes:
+                return imagenes[0].get("thumburl") or imagenes[0].get("url")
+
+    except (requests.RequestException, ValueError):
+        print("No se pudo encontrar una fotografía.")
+
+    return None
+
 def publicar_ave():
     webhook = os.environ["DISCORD_WEBHOOK"]
     historial = cargar_historial()
@@ -105,7 +141,7 @@ def publicar_ave():
         disponibles = AVES.copy()
 
     ave = random.choice(disponibles)
-
+fotografia = buscar_fotografia(ave["nombre"])
     mensaje = {
         "embeds": [{
             "title": f"🐦 Ave del día: {ave['nombre']}",
@@ -117,6 +153,7 @@ def publicar_ave():
                 f"💡 **Curiosidad:** {ave['dato']}"
             ),
             "color": 3447003,
+            "image": {"url": fotografia} if fotografia else {},
             "footer": {
                 "text": "🇪🇸 Pájaro del Día | Aves de España"
             }
